@@ -1,0 +1,10 @@
+{
+  "name": "blackjack-discord-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "register": "node scripts/register.mjs"
+  }
+}

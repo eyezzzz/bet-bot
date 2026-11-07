@@ -1,0 +1,7 @@
+node_modules/
+.dev.vars
+.env
+.env.*
+.wrangler/
+*.log
+worker_code_base64.txt
