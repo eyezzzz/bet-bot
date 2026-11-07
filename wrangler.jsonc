@@ -21,5 +21,8 @@
     "crons": [
       "*/5 * * * *"
     ]
+  },
+  "vars": {
+    "DISCORD_PUBLIC_KEY": "c07f07d242978e727aaa3c69c7dd58dc48a30587f608082a28a948737b2bf905"
   }
 }
