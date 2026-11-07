@@ -17,7 +17,9 @@ O token do Discord **foi exposto em uma mensagem anterior**: é indispensável r
 1. `DISCORD_PUBLIC_KEY` deve estar configurada como variável/segredo do Worker. A chave é pública, usada para validar assinaturas Ed25519.
 2. Em **Discord Developer Portal → General Information**, defina o **Interactions Endpoint URL** com o endereço acima. É necessário que o Discord valide o PING assinado.
 3. Instale a aplicação no servidor com escopo `applications.commands` (e `bot`, quando aplicável).
-4. Registre os comandos usando `npm run register`, com `DISCORD_BOT_TOKEN` **novo** definido somente no ambiente local; `DISCORD_GUILD_ID` é opcional para teste no servidor específico.
+4. **Sem instalar nada:** no Cloudflare, entre no Worker `blackjack-discord`, vá a **Settings → Variables and Secrets → Add → Secret**, defina o nome `DISCORD_BOT_TOKEN` e cole um token válido diretamente no painel. O agendamento do Worker registra os comandos globais automaticamente no Discord (verificação a cada cinco minutos).
+5. Confira o estado em https://blackjack-discord.mcpe3004.workers.dev/setup-status — quando `registered` aparecer como `true`, o Discord aceitou os comandos.
+6. O script local `npm run register` continua disponível como alternativa, mas **não é necessário**.
 
 Não é necessário cadastrar `DISCORD_BOT_TOKEN` no Cloudflare Worker para responder às interações.
 

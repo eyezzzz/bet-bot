@@ -223,9 +223,63 @@ async function handle(interaction,env){
   }
   return reply('Interação não suportada.');
 }
+
+const REGISTER_COMMANDS=[
+  {name:'blackjack',description:'Começar uma partida de Blackjack',options:[{name:'aposta',description:'Fichas virtuais; número par',type:4,required:true,min_value:10,max_value:100000}]},
+  {name:'continuar',description:'Reabrir os botões de sua rodada em andamento'},
+  {name:'saldo',description:'Consultar seu saldo de fichas virtuais'},
+  {name:'daily',description:'Resgatar 250 fichas virtuais a cada 24 horas'},
+  {name:'ranking',description:'Ranking de lucros do servidor'},
+  {name:'mesa',description:'Consultar partidas em andamento neste canal'},
+  {name:'regras',description:'Regras do Blackjack'},
+  {name:'adminfichas',description:'Administrador concede fichas virtuais',default_member_permissions:'8',options:[{name:'usuario',description:'Usuário que receberá fichas',type:6,required:true},{name:'quantidade',description:'Quantidade de fichas',type:4,required:true,min_value:1,max_value:100000}]}
+];
+
+// Registro dos comandos sem necessitar de PC ou Gateway. A credencial fica apenas em secrets Cloudflare.
+async function registerDiscordCommands(env) {
+  if (!env.DISCORD_BOT_TOKEN) return;
+  const latest = await env.DB.prepare("SELECT status FROM bot_setup WHERE key='discord_global_commands'").first();
+  if (latest?.status === 'ok') return;
+  let code = 0, count = 0, status = 'error', error = null;
+  try {
+    const res = await fetch('https://discord.com/api/v10/applications/1568686586969726996/commands', {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bot ' + env.DISCORD_BOT_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(REGISTER_COMMANDS)
+    });
+    code = res.status;
+    const responseText = await res.text();
+    let data;
+    try { data = JSON.parse(responseText); } catch { data = null; }
+    count = Array.isArray(data) ? data.length : 0;
+    if (res.ok && count === REGISTER_COMMANDS.length) status = 'ok';
+    else {
+      status = code === 401 ? 'invalid_token' : 'error';
+      error = String(data?.message || 'Discord HTTP ' + code).slice(0,200);
+    }
+  } catch (e) {
+    error = String(e instanceof Error ? e.message : e).slice(0,200);
+  }
+  await env.DB.prepare(
+    "INSERT INTO bot_setup(key,status,http_code,command_count,last_error,updated_at) VALUES('discord_global_commands',?,?,?,?,unixepoch()) " +
+    "ON CONFLICT(key) DO UPDATE SET status=excluded.status,http_code=excluded.http_code,command_count=excluded.command_count,last_error=excluded.last_error,updated_at=excluded.updated_at"
+  ).bind(status,code,count,error).run();
+}
+
 export default {
+  async scheduled(controller,env,ctx){
+    if (controller.cron !== '*/5 * * * *' || !env.DISCORD_BOT_TOKEN || !env.DB) return;
+    await registerDiscordCommands(env);
+  },
   async fetch(request,env){
     const url=new URL(request.url);
+    if(request.method==='GET' && url.pathname==='/setup-status'){
+      const info=await env.DB.prepare("SELECT status,http_code,command_count,last_error,updated_at FROM bot_setup WHERE key='discord_global_commands'").first();
+      return Response.json({worker:'blackjack-discord',tokenConfigured:!!env.DISCORD_BOT_TOKEN,registered:info?.status==='ok',status:info?.status||'pending',httpCode:info?.http_code||null,commands:info?.command_count||0,lastError:info?.last_error||null,updatedAt:info?.updated_at||null});
+    }
     if(request.method==='GET' && url.pathname==='/') return Response.json({service:'blackjack-discord',online:true,database:!!env.DB,discordConfigured:!!env.DISCORD_PUBLIC_KEY});
     if(request.method!=='POST' || url.pathname!=='/interactions') return new Response('Not found',{status:404});
     if(!env.DISCORD_PUBLIC_KEY) return Response.json({error:'Configure a chave PUBLIC KEY do Discord no Worker.'},{status:503});
